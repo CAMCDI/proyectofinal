@@ -1,0 +1,97 @@
+/* file_manager/static/file_manager/css/upload.css */
+
+:root {
+    --upload-border: #cbd5e1;
+    --upload-bg: #f8fafc;
+    --upload-hover-bg: #f0f9ff;
+    --upload-primary: #3b82f6;
+    --glass-bg: rgba(255, 255, 255, 0.8);
+    --glass-border: rgba(255, 255, 255, 0.2);
+}
+
+.upload-container {
+    perspective: 1000px;
+}
+
+.upload-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+    transition: transform 0.3s ease;
+}
+
+.upload-zone {
+    border: 2px dashed var(--upload-border);
+    border-radius: 16px;
+    padding: 4rem 2rem;
+    text-align: center;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    background-color: var(--upload-bg);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.upload-zone:hover,
+.upload-zone.drag-over {
+    border-color: var(--upload-primary);
+    background-color: var(--upload-hover-bg);
+    transform: translateY(-2px);
+}
+
+.upload-icon-wrapper {
+    font-size: 4.5rem;
+    color: #94a3b8;
+    margin-bottom: 1.5rem;
+    transition: transform 0.3s ease;
+}
+
+.upload-zone:hover .upload-icon-wrapper {
+    transform: scale(1.1) rotate(-5deg);
+    color: var(--upload-primary);
+}
+
+#fileInput {
+    display: none;
+}
+
+.file-details-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+    border: 1px solid #e2e8f0;
+    display: none;
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.badge-ext {
+    font-size: 0.8rem;
+    padding: 0.4em 0.8em;
+    letter-spacing: 0.05em;
+}
+
+.btn-upload-primary {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    border: none;
+    padding: 0.8rem 2rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-upload-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.btn-upload-primary:disabled {
+    background: #94a3b8;
+    opacity: 0.7;
+}

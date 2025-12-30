@@ -1,0 +1,92 @@
+<!-- file_manager/templates/file_manager/task_upload.html -->
+{% extends 'file_manager/base.html' %}
+{% load static %}
+
+{% block title %}Subir Archivo - {{ task_name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'file_manager/css/upload.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <!-- Back Button -->
+        <a href="{% url 'file_manager:home' %}" class="btn btn-link text-decoration-none mb-4 p-0">
+            Volver al Inicio
+        </a>
+
+        <div class="card border-0 shadow-lg glass">
+            <div class="card-body p-5">
+                <div class="text-center mb-5">
+                    <h2 class="fw-bold mb-3">{{ task_name }}</h2>
+                    <p class="text-muted">Cargue el archivo correspondiente para iniciar el procesamiento automático.
+                    </p>
+                </div>
+
+                <form id="uploadForm" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <!-- File Drop Zone -->
+                    <div id="dropZone" class="mb-4 text-center border-dashed rounded-4 p-5 transition-all">
+                        <input type="file" name="file" id="fileInput" class="d-none" required>
+                        <h4 id="dropZoneText" class="mb-2">Arrastre el archivo aquí</h4>
+                        <p class="text-secondary small">o seleccione un archivo del sistema</p>
+                        <button type="button" id="browseBtn" class="btn btn-outline-primary mt-3">
+                            Seleccionar Archivo
+                        </button>
+                    </div>
+
+                    <!-- File Details Preview -->
+                    <div id="filePreview" class="d-none mb-4">
+                        <div class="p-3 bg-light rounded d-flex align-items-center">
+                            <i id="fileIcon" class="bi bi-file-earmark-text fs-2 text-primary me-3"></i>
+                            <div class="flex-grow-1 overflow-hidden">
+                                <h6 id="fileName" class="mb-0 text-truncate">nombre_del_archivo.csv</h6>
+                                <small id="fileSize" class="text-muted">0 KB</small>
+                            </div>
+                            <button type="button" id="removeFile" class="btn btn-link text-danger">
+                                <i class="bi bi-x-circle"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Error Messages -->
+                    <div id="errorMessage" class="alert alert-danger d-none mb-4">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <span id="errorText">Error message here</span>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" id="submitBtn" class="btn btn-primary btn-lg py-3 rounded-3" disabled>
+                            Iniciar Procesamiento
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Help Alert -->
+                <div class="alert alert-info border-0 bg-info bg-opacity-10 mt-5">
+                    <div class="d-flex">
+                        <i class="bi bi-info-circle-fill fs-4 text-info me-3"></i>
+                        <div>
+                            <h6 class="alert-heading fw-bold">Instrucciones</h6>
+                            <p class="mb-0 small opacity-75">
+                                Asegúrate de que el archivo cumpla con el formato requerido.
+                                El sistema validará automáticamente el contenido antes de procesar.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{ max_size_mb|json_script:"max-size-mb" }}
+{{ allowed_extensions|json_script:"allowed-extensions" }}
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'file_manager/js/upload.js' %}"></script>
+{% endblock %}
