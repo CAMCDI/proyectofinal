@@ -26,8 +26,23 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-f^+i(^3x=1nt+q
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '*').split(',')
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1', 
+    'midlands-childrens-ascii-viewer.trycloudflare.com',
+    '.trycloudflare.com',  # Permite cualquier subdominio
+]
+CSRF_TRUSTED_ORIGINS = [
+    'https://midlands-childrens-ascii-viewer.trycloudflare.com',
+    'https://*.trycloudflare.com',
+]
 
+# Para desarrollo (quita errores CSRF)
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
+
+# Para desarrollo con Cloudflare
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Application definition
 

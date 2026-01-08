@@ -10,6 +10,8 @@ import nltk
 import pandas as pd
 import numpy as np
 
+from django.conf import settings
+
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import RobustScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
@@ -133,8 +135,8 @@ class CustomOneHotEncoding(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
         X_cat = X.select_dtypes(include=['object'])
         if not X_cat.empty:
-            self._columns = pd.get_dummies(X_cat).columns
             self._oh.fit(X_cat)
+            self._columns = list(self._oh.get_feature_names_out(X_cat.columns))
         return self
     def transform(self, X, y=None):
         X_copy = X.copy()
@@ -166,7 +168,11 @@ class DataFramePreparer(BaseEstimator, TransformerMixin):
             ("cat", CustomOneHotEncoding(), cat_attribs),
         ])
         self._full_pipeline.fit(X)
-        self._columns = pd.get_dummies(X).columns
+        
+        # Optimized column name retrieval
+        cat_transformer = self._full_pipeline.named_transformers_['cat']
+        cat_cols = cat_transformer._columns if hasattr(cat_transformer, '_columns') and cat_transformer._columns else []
+        self._columns = num_attribs + list(cat_cols)
         return self
 
     def transform(self, X, y=None):
@@ -195,21 +201,26 @@ class MLManager:
                 file_map = {}
                 index_path = None
                 
-                # First pass: map all files and look for exact 'index'
+                # First pass: map all files and look for potential indices
                 possible_indices = []
                 for root, dirs, files in os.walk(extract_dir):
                     for f in files:
                         full_path = os.path.join(root, f)
+                        # Map by filename for O(1) fallback lookup
                         file_map[f] = full_path
-                        # If filename is exactly 'index' or contains 'index', prioritize it
-                        if 'index' in f.lower():
+                        # Prioritize 'index' files
+                        if f.lower() == 'index' or f.lower() == 'index.txt':
                             possible_indices.insert(0, full_path)
-                        else:
+                        elif 'index' in f.lower():
                             possible_indices.append(full_path)
                 
                 # Fallback / Server-side index path
-                # According to find results: Datasets/datasets/trec07p/full/index.txt
-                server_index = "/home/aza/Documentos/simulacion/Datasets/datasets/trec07p/full/index.txt"
+                # Try to find it relative to BASE_DIR if it's not in the ZIP
+                server_index = os.path.join(settings.BASE_DIR.parent, "Datasets/datasets/trec07p/full/index.txt")
+                
+                if not index_path and possible_indices:
+                    # Use the first file that contains 'index' in its name
+                    index_path = possible_indices[0]
                 
                 if not index_path and os.path.exists(server_index):
                     index_path = server_index
@@ -238,14 +249,19 @@ class MLManager:
                     if not line: continue
                     
                     parts = line.split()
+                    if len(parts) < 2: continue
                     label = parts[0]
-                    rel_path = parts[1] if len(parts) > 1 else ""
-                    target_filename = os.path.basename(rel_path)
+                    rel_path_from_index = parts[1]
                     
-                    # O(1) Lookup in the ZIP content
-                    found_path = file_map.get(target_filename)
+                    # 1. Try resolving relative to the index file itself (Robust)
+                    found_path = os.path.normpath(os.path.join(os.path.dirname(index_path), rel_path_from_index))
                     
-                    if found_path:
+                    # 2. If not found, try fallback O(1) Lookup by filename
+                    if not os.path.exists(found_path):
+                        target_filename = os.path.basename(rel_path_from_index)
+                        found_path = file_map.get(target_filename)
+                    
+                    if found_path and os.path.exists(found_path):
                         content = parser.parse(found_path)
                         # Ensure we got good content
                         if content and "error" not in content and (content['subject'] or content['body']):
@@ -670,13 +686,13 @@ class MLManager:
 
             # 3. Transform Data
             data_preparer = DataFramePreparer()
-            data_preparer.fit(X_df) # Fit on full dataset as in notebook
+            data_preparer.fit(X_train) # Fit ONLY on training data (ML Best Practice & Faster)
             
             X_train_prep = data_preparer.transform(X_train)
             X_val_prep = data_preparer.transform(X_val)
 
             # 4. Train Logistic Regression
-            clf = LogisticRegression(max_iter=5000)
+            clf = LogisticRegression(max_iter=1000, solver='lbfgs') # Reduced max_iter for speed
             clf.fit(X_train_prep, y_train)
 
             # 5. Metrics
