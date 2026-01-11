@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ML Processor - Seleccionar Ejercicio</title>
+    <link rel="stylesheet" href="css/styles_v3.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>ML Processor <span id="api-status" class="status-dot"></span></h1>
+            <p class="subtitle">Selecciona un ejercicio para comenzar</p>
+        </header>
+
+        <div id="task-grid" class="task-grid">
+            <div class="loading" style="display: block;">
+                <div class="spinner"></div>
+                <p>Cargando ejercicios...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/state.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/index.js"></script>
+</body>
+
+</html>
