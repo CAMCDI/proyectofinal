@@ -30,13 +30,15 @@ ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1', 
     '.trycloudflare.com',      # Existing
-    '.tunnelto.dev',           # Tunnelto
+    '.tunnelto.dev',           # Tunnelto (Legacy)
+    '.tunn.dev',               # Tunnelto (New)
     '.onrender.com',           # Render
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     'https://*.trycloudflare.com',
     'https://*.tunnelto.dev',
+    'https://*.tunn.dev',
     'https://*.onrender.com',
     'http://127.0.0.1:5500',
     'http://localhost:5500',
