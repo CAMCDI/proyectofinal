@@ -321,7 +321,7 @@ class MLManager:
             ohe.fit(words_reshaped)
             ohe_encoded = ohe.transform(words_reshaped).toarray()
             ohe_df = pd.DataFrame(ohe_encoded, columns=ohe.get_feature_names_out())
-            ohe_html = ohe_df.to_html(classes='table table-sm table-dark small', border=0)
+            ohe_html = ohe_df.to_html(classes='table table-sm table-hover small', border=0)
             
             # Tabla 3: Predicciones
             pred_df = pd.DataFrame({

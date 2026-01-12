@@ -105,12 +105,13 @@ h1 i {
     box-shadow: 0 0 12px var(--error);
 }
 
-/* Task Grid - Tumblr Aesthetic */
+/* Task Grid - Balanced & Airy */
 .task-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 3.5rem;
-    /* Max separation */
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    /* Optimised for fit */
+    gap: 2rem;
+    /* Reduced from 3.5rem to be more cohesive */
     padding: 1rem;
     animation: fadeInUp 0.6s ease-out 0.2s both;
 }
@@ -354,8 +355,29 @@ h1 i {
 }
 
 .table tbody tr:hover td {
-    background: #fff1f2;
+    background: #fff1f2 !important;
     /* Rose-50 hover */
+}
+
+/* Force Light Theme on ALL Tables (Fix for dark backgrounds) */
+.table,
+.table td,
+.table th,
+.table tr {
+    background-color: #ffffff !important;
+    color: #475569 !important;
+    border-color: #f1f5f9;
+}
+
+.table th {
+    background-color: #f5f3ff !important;
+    /* Violet header */
+    color: #7c3aed !important;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(0, 0, 0, 0.01) !important;
+    /* Very subtle stripe */
 }
 
 /* Code Blocks & Raw Output - Clean Light Style */
