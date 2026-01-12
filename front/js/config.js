@@ -12,7 +12,7 @@ const CONFIG = {
         // O dejar esta lógica para que funcione si sirven el front desde el mismo dominio (no es el caso aquí).
 
         // Poner aquí la URL de tu túnel (ej: https://mi-app.tunnelto.dev)
-        return 'https://t-fxzfd59t.tunn.dev';
+        return 'https://exempt-enters-happened-flush.trycloudflare.com';
     })()
 };
 
