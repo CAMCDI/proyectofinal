@@ -1,325 +1,261 @@
 // frontend/js/app_v3.js
 
+// frontend/js/app_v3.js
+/**
+ * Main Client Logic
+ * Refactored for Clean Code & Maintainability
+ */
+
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Elements ---
-    const taskGrid = document.getElementById('task-grid');
-    const uploadModal = document.getElementById('upload-modal');
-    const closeModal = document.getElementById('close-modal');
-    const dropZone = document.getElementById('drop-zone');
-    const fileInput = document.getElementById('file-input');
-    const processBtn = document.getElementById('process-btn');
-    const selectedFilename = document.getElementById('selected-filename');
-    const fileInfo = document.getElementById('file-info');
-    const resultArea = document.getElementById('result-area');
-    const resultJson = document.getElementById('result-json');
-    const uploadPanel = document.getElementById('upload-panel');
-    const processLoading = document.getElementById('process-loading');
-    const resetBtn = document.getElementById('reset-btn');
+    // --- Configuration & State ---
+    const State = {
+        taskId: null,
+        file: null,
+        isPolling: false,
+        pollTimeout: null
+    };
 
-    // --- State ---
-    let currentTaskId = null;
-    let selectedFile = null;
-    let pollTimeoutId = null; // Para cancelar polling
-    let isPolling = false;
+    // --- UI Strings & Renderers (Separation of Concerns) ---
+    const UIManager = {
+        els: {
+            taskGrid: document.getElementById('task-grid'),
+            modal: document.getElementById('upload-modal'),
+            uploadPanel: document.getElementById('upload-panel'),
+            processLoading: document.getElementById('process-loading'),
+            resultArea: document.getElementById('result-area'),
+            fileInput: document.getElementById('file-input'),
+            fileInfo: document.getElementById('file-info'),
+            filename: document.getElementById('selected-filename'),
+            processBtn: document.getElementById('process-btn'),
+            statusDot: document.getElementById('api-status'),
+            debugLogs: document.getElementById('debug-logs')
+        },
 
-    // --- Diagnose / UI Helpers ---
-    const apiStatus = document.getElementById('api-status');
-    const debugLogs = document.getElementById('debug-logs');
+        renderTasks(tasks) {
+            this.els.taskGrid.innerHTML = tasks.map(task => `
+                <div class="card" onclick="startTaskSelection('${task.id}', '${task.name}', '${task.ext}')">
+                    <h2><i class="bi ${task.icon || 'bi-gear'}"></i> ${task.name}</h2>
+                    <p>${task.description}</p>
+                    <div class="badge">${task.ext}</div>
+                </div>
+            `).join('');
 
-    function logMarker(label, data) {
-        const timestamp = new Date().toLocaleTimeString();
-        const entry = document.createElement('div');
-        entry.className = 'log-entry';
-        const dataStr = (typeof data === 'object') ? JSON.stringify(data) : data;
-        entry.innerHTML = `<span class="time">${timestamp}</span> <span class="label">${label}</span>: ${dataStr}`;
-        if (debugLogs) debugLogs.prepend(entry);
-        console.log(`[APP] ${label}:`, data || '');
-    }
+            // Re-attach handlers needing closure data if necessary, 
+            // but inline onclick is used here for simplicity vs boilerplate
+        },
 
-    // --- Initialization (Connection Check) ---
-    async function initApp() {
-        logMarker('INIT', `Backend URL: ${CONFIG.BACKEND_URL}`);
+        showModal(title, ext) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-exts').innerText = `Formato: ${ext}`;
+            this.toggleView('upload');
+            this.els.modal.style.display = 'flex';
+        },
 
-        try {
-            // FIX: Usar /ping/ o /tasks/ en vez de / para asegurar JSON válido y evitar "Unexpected token <"
-            const response = await fetch(`${CONFIG.BACKEND_URL}/tasks/`);
+        closeModal() {
+            this.els.modal.style.display = 'none';
+        },
 
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        toggleView(view) {
+            // Simple State Machine for Modal UI
+            this.els.uploadPanel.style.display = (view === 'upload') ? 'block' : 'none';
+            this.els.processLoading.style.display = (view === 'loading') ? 'block' : 'none';
+            this.els.resultArea.style.display = (view === 'result') ? 'block' : 'none';
+        },
 
-            const data = await response.json();
-            apiStatus.className = 'status-dot online';
-            logMarker('CONNECTION', 'OK - Tareas cargadas');
+        updateStatus(isOnline) {
+            this.els.statusDot.className = isOnline ? 'status-dot online' : 'status-dot offline';
+        },
 
-            const mainLoading = document.getElementById('main-loading');
-            if (mainLoading) mainLoading.remove();
+        fileSelected(file) {
+            this.els.filename.innerText = file.name;
+            this.els.fileInfo.style.display = 'block';
+            this.els.processBtn.disabled = false;
+        },
 
-            renderTasks(data.tasks);
+        resetUpload() {
+            this.els.fileInput.value = '';
+            this.els.filename.innerText = '';
+            this.els.fileInfo.style.display = 'none';
+            this.els.processBtn.disabled = true;
+            this.toggleView('upload');
+        },
 
-        } catch (error) {
-            apiStatus.className = 'status-dot offline';
-            logMarker('INIT_ERROR', error.message);
-            taskGrid.innerHTML = `
-                <div style="text-align: center; color: var(--error); padding: 2rem;">
-                    <h3><i class="bi bi-wifi-off"></i> Error de Conexión</h3>
-                    <p>No se pudo conectar con el backend en: <code>${CONFIG.BACKEND_URL}</code></p>
-                    <p class="text-muted">Verifica que el servidor Django esté corriendo y que la URL en config.js sea correcta.</p>
-                    <button class="btn btn-secondary" onclick="location.reload()" style="margin-top:1rem">Reintentar</button>
+        renderResults(data) {
+            this.toggleView('result');
+
+            const metricsHtml = (data.metrics || []).map(m =>
+                `<div class="badge" style="font-size:0.9em">${m.label}: ${m.value}</div>`
+            ).join('');
+
+            const tablesHtml = (data.tables || []).map(t => `
+                <div class="table-viewer">
+                    <h4 style="margin-bottom:10px; color:var(--secondary)">${t.title}</h4>
+                    <div class="table-container">${t.content}</div>
+                </div>
+            `).join('');
+
+            const graphicsHtml = (data.graphics || []).map(g => `
+                <div class="graphic-item">
+                    <h4>${g.title}</h4>
+                    <img src="data:image/png;base64,${g.image}" loading="lazy" alt="${g.title}">
+                </div>
+            `).join('');
+
+            this.els.resultArea.innerHTML = `
+                <div class="analysis-summary">
+                    <h3 style="margin-top:0"><i class="bi bi-check-circle-fill"></i> Análisis Completado</h3>
+                    <p>${data.result || 'Proceso finalizado con éxito.'}</p>
+                </div>
+                
+                <div style="display:flex; gap:10px; margin-bottom:2rem; flex-wrap:wrap">
+                    ${metricsHtml}
+                </div>
+
+                ${tablesHtml}
+                
+                <div class="graphics-grid">
+                    ${graphicsHtml}
+                </div>
+
+                <div style="margin-top:3rem; text-align:center;">
+                    <button class="btn btn-primary" onclick="resetApp()">
+                        <i class="bi bi-arrow-counterclockwise"></i> Nuevo Análisis
+                    </button>
                 </div>
             `;
         }
-    }
+    };
 
-    function renderTasks(tasks) {
-        taskGrid.innerHTML = ''; // Limpiar
-        tasks.forEach(task => {
-            const card = document.createElement('div');
-            card.className = 'card';
-            card.innerHTML = `
-                <h2><i class="bi ${task.icon || 'bi-gear'}"></i> ${task.name}</h2>
-                <p>${task.description}</p>
-                <div class="badge">${task.ext}</div>
-            `;
-            card.onclick = () => openUploadModal(task);
-            taskGrid.appendChild(card);
-        });
-    }
+    // --- Logic / Controller ---
 
-    // --- Modal Logic ---
-    function openUploadModal(task) {
-        // Limpiamos estado anterior por seguridad
-        stopPolling();
+    const Logger = {
+        log(label, data) {
+            const time = new Date().toLocaleTimeString();
+            const msg = (typeof data === 'object') ? JSON.stringify(data) : data;
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="time">${time}</span> <span class="label">${label}</span> ${msg}`;
 
-        currentTaskId = task.id;
-        document.getElementById('modal-title').innerText = task.name;
-        document.getElementById('modal-exts').innerText = `Formato: ${task.ext}`;
-
-        resetUIForNewUpload();
-        uploadModal.style.display = 'flex';
-    }
-
-    function resetUIForNewUpload() {
-        uploadPanel.style.display = 'block';
-        processLoading.style.display = 'none';
-        resultArea.style.display = 'none';
-
-        selectedFile = null;
-        fileInput.value = ''; // Limpiar input file real
-        selectedFilename.innerText = '';
-        fileInfo.style.display = 'none';
-        processBtn.disabled = true;
-    }
-
-    function closeModalHandler() {
-        if (isPolling) {
-            if (!confirm("Hay un análisis en curso. ¿Seguro que quieres cerrar? Se detendrá el monitoreo.")) return;
-        }
-        stopPolling();
-        uploadModal.style.display = 'none';
-    }
-
-    closeModal.onclick = closeModalHandler;
-
-    // Cerrar al dar click fuera (solo si no está procesando para evitar cierres accidentales)
-    window.onclick = (event) => {
-        if (event.target == uploadModal && !isPolling) {
-            uploadModal.style.display = 'none';
+            const logs = document.getElementById('debug-logs');
+            if (logs) logs.prepend(entry);
+            console.log(`[APP] ${label}:`, data);
         }
     };
 
-    // --- File Drag & Drop ---
-    dropZone.onclick = () => fileInput.click();
-    fileInput.onchange = (e) => {
-        if (e.target.files.length > 0) handleFile(e.target.files[0]);
+    async function init() {
+        Logger.log('INIT', `Connecting to ${CONFIG.BACKEND_URL}`);
+        try {
+            const res = await API.getTasks(); // Assumes API.getTasks logic from api.js
+            UIManager.updateStatus(true);
+            UIManager.renderTasks(res.tasks);
+            Logger.log('READY', `${res.tasks.length} tasks loaded`);
+
+            // Remove initial skeleton/loading
+            const loader = document.querySelector('.loading');
+            if (loader) loader.style.display = 'none';
+
+        } catch (err) {
+            UIManager.updateStatus(false);
+            Logger.log('ERROR', err.message);
+            // Optional: Show error UI in grid
+            alert('Error conectando al backend. Ver consola.');
+        }
+    }
+
+    // --- Actions ---
+
+    window.startTaskSelection = (id, name, ext) => {
+        stopActivePolling();
+        State.taskId = id;
+        UIManager.showModal(name, ext);
+        UIManager.resetUpload();
+        State.file = null;
     };
-    dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
-    dropZone.ondragleave = () => dropZone.classList.remove('dragover');
-    dropZone.ondrop = (e) => {
+
+    window.resetApp = () => {
+        UIManager.resetUpload();
+        State.file = null;
+    };
+
+    // File Handling
+    const handleFile = (file) => {
+        if (!file) return;
+        State.file = file;
+        UIManager.fileSelected(file);
+    };
+
+    UIManager.els.fileInput.onchange = (e) => handleFile(e.target.files[0]);
+
+    // Drag & Drop
+    const dz = document.getElementById('drop-zone');
+    dz.onclick = () => UIManager.els.fileInput.click();
+    dz.ondragover = (e) => { e.preventDefault(); dz.classList.add('dragover'); };
+    dz.ondragleave = () => dz.classList.remove('dragover');
+    dz.ondrop = (e) => {
         e.preventDefault();
-        dropZone.classList.remove('dragover');
-        if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+        dz.classList.remove('dragover');
+        handleFile(e.dataTransfer.files[0]);
     };
 
-    function handleFile(file) {
-        selectedFile = file;
-        selectedFilename.innerText = file.name;
-        fileInfo.style.display = 'block';
-        processBtn.disabled = false;
-        logMarker('FILE_SELECTED', file.name);
-    }
+    // Process Flow
+    UIManager.els.processBtn.onclick = async () => {
+        if (!State.file || !State.taskId) return;
 
-    // --- Processing Logic & Polling ---
-    processBtn.onclick = async () => {
-        if (!selectedFile || !currentTaskId) return;
-
-        // UI Change
-        uploadPanel.style.display = 'none';
-        processLoading.style.display = 'block';
+        UIManager.toggleView('loading');
         document.getElementById('process-status').innerText = 'Subiendo archivo...';
 
-        const formData = new FormData();
-        formData.append('file', selectedFile);
-
         try {
-            const url = `${CONFIG.BACKEND_URL}/tasks/${currentTaskId}/`;
+            const res = await API.uploadFile(State.taskId, State.file);
+            Logger.log('UPLOAD', 'Success');
 
-            logMarker('UPLOAD_START', url);
-            const response = await fetch(url, { method: 'POST', body: formData });
-
-            if (!response.ok) {
-                const err = await response.json().catch(() => ({}));
-                throw new Error(err.error || `Error ${response.status}`);
-            }
-
-            const data = await response.json();
-
-            // Si es 202 Accepted, el backend está procesando en hilo aparte
-            if (response.status === 202) {
-                startPolling(data.task_id, data.file_id);
+            if (res.status === 'accepted' || res.status === 'success') { // Handle both
+                initPolling(State.taskId, res.file_id || res.task_id); // Adjust based on API return
             } else {
-                // Si respondiera directo (legacy)
-                showResults(data.ml_result);
+                UIManager.renderResults(res.ml_result); // Direct result
             }
-
-        } catch (error) {
-            handleError(error);
+        } catch (err) {
+            handleError(err);
         }
     };
 
-    function startPolling(taskId, fileId) {
-        logMarker('POLLING_START', `Task: ${taskId}, File: ${fileId}`);
-        document.getElementById('process-status').innerText = 'Procesando análisis (esto puede tardar)...';
-        isPolling = true;
+    // Polling Logic
+    function initPolling(taskId, fileId) {
+        State.isPolling = true;
+        document.getElementById('process-status').innerText = 'Procesando... esto puede tardar unos segundos.';
 
-        let attempts = 0;
-        const maxAttempts = 120; // ~4 minutos (intervalo 2s)
-
-        const poll = async () => {
-            if (!isPolling) return; // Cancelado
-
-            attempts++;
-            if (attempts > maxAttempts) {
-                handleError(new Error("Timeout: El servidor tardó demasiado en responder."));
-                return;
-            }
-
-            try {
-                const res = await fetch(`${CONFIG.BACKEND_URL}/tasks/${taskId}/result/${fileId}/`);
-                if (!res.ok) throw new Error("Error de red consultando estado");
-
-                const data = await res.json();
-
-                if (data.status === 'COMPLETED') {
-                    logMarker('POLLING_DONE', 'Status COMPLETED');
-                    isPolling = false;
-                    showResults(data.ml_result);
-                } else if (data.status === 'FAILED') {
-                    throw new Error(JSON.stringify(data.error || "Falló el análisis en el servidor"));
-                } else {
-                    // Sigue procesando
-                    logMarker('POLLING', `Intento ${attempts} - ${data.status}`);
-                    pollTimeoutId = setTimeout(poll, 2000);
-                }
-
-            } catch (e) {
-                // Errores de red transitorios no deberían matar el polling inmediatamente, 
-                // pero si es persistente sí. Por ahora manejamos como error para simplificar.
-                handleError(e);
-            }
-        };
-
-        poll();
+        API.pollResult(taskId, fileId, (status, attempt) => {
+            if (!State.isPolling) return;
+            Logger.log('POLL', `Attempt ${attempt} - ${status}`);
+        })
+            .then(result => {
+                if (!State.isPolling) return;
+                Logger.log('DONE', 'Analysis complete');
+                UIManager.renderResults(result);
+                State.isPolling = false;
+            })
+            .catch(handleError);
     }
 
-    function stopPolling() {
-        isPolling = false;
-        if (pollTimeoutId) {
-            clearTimeout(pollTimeoutId);
-            pollTimeoutId = null;
-        }
+    function stopActivePolling() {
+        State.isPolling = false;
+        if (State.pollTimeout) clearTimeout(State.pollTimeout);
     }
 
-    function handleError(error) {
-        stopPolling();
-        console.error(error);
-        logMarker('ERROR', error.message);
-
-        let msg = error.message;
-        if (msg === 'Failed to fetch') msg = 'Error de conexión con el servidor.';
-
-        alert(`Ocurrió un error: ${msg}`);
-
-        // Regresar al estado de carga pero no cerrar modal completamente si es posible corregir
-        processLoading.style.display = 'none';
-        uploadPanel.style.display = 'block';
+    function handleError(err) {
+        State.isPolling = false;
+        Logger.log('ERROR', err.message);
+        alert(`Error: ${err.message}`);
+        UIManager.toggleView('upload'); // Go back so user can retry
     }
 
-    function showResults(data) {
-        processLoading.style.display = 'none';
-        resultArea.style.display = 'block';
-
-        // Construir UI de resultados
-        // Header
-        let html = `<div class="analysis-summary">
-            <h3><i class="bi bi-check-circle-fill" style="color:var(--success)"></i> Análisis Completado</h3>
-            <p>${data.result || 'Resultados generados exitosamente.'}</p>
-        </div>`;
-
-        // Métricas
-        if (data.metrics && data.metrics.length > 0) {
-            html += `<div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:2rem;">`;
-            data.metrics.forEach(m => {
-                html += `<div class="badge">${m.label}: ${m.value}</div>`;
-            });
-            html += `</div>`;
-        }
-
-        // Tablas
-        if (data.tables) {
-            data.tables.forEach(t => {
-                html += `<div class="table-viewer">
-                    <h4>${t.title}</h4>
-                    <div class="table-container">${t.content}</div>
-                </div>`;
-            });
-        }
-
-        // Gráficos
-        if (data.graphics) {
-            html += `<div class="graphics-grid">`;
-            data.graphics.forEach(g => {
-                html += `<div class="graphic-item">
-                    <h4>${g.title}</h4>
-                    <img src="data:image/png;base64,${g.image}" loading="lazy" alt="${g.title}">
-                </div>`;
-            });
-            html += `</div>`;
-        }
-
-        // Botón Reset
-        html += `<div style="margin-top:2rem; text-align:center;">
-            <button class="btn btn-primary" id="new-analysis-btn">Nuevo Análisis</button>
-        </div>`;
-
-        resultArea.innerHTML = html;
-
-        // Bind reset button dinámicamente
-        document.getElementById('new-analysis-btn').onclick = () => {
-            resetUIForNewUpload();
-        };
-    }
-
-    // --- Manual Helpers ---
-    resetBtn.onclick = resetUIForNewUpload;
-    document.getElementById('test-conn-btn').onclick = async () => {
-        try {
-            const res = await fetch(`${CONFIG.BACKEND_URL}/ping/`, { method: 'POST' });
-            const d = await res.json();
-            alert(`Conexión Exitosa: ${d.status}`);
-        } catch (e) {
-            alert(`Error de Conexión: ${e.message}\nVerifica que el backend corra en ${CONFIG.BACKEND_URL}`);
-        }
+    // Global Modal Close Logic
+    const closeBtn = document.getElementById('close-modal');
+    closeBtn.onclick = () => {
+        if (State.isPolling && !confirm("¿Cancelar análisis?")) return;
+        stopActivePolling();
+        UIManager.closeModal();
     };
 
-    // Start
-    initApp();
+    // Initialize
+    init();
 });
