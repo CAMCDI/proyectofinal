@@ -6,13 +6,15 @@ from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title="Proxy API (API2)", description="Pasarela ligera hacia el backend de ML")
 
 # Configuración del Túnel Cloudflare (Opcional para prod)
-# Si estás en local, usa la URL de localhost para velocidad máxima
 API1_BASE_URL = os.getenv("API1_BASE_URL", "http://127.0.0.1:8000")
-TUNNEL_URL = os.getenv("TUNNEL_URL", "https://metals-consistently-sheet-xml.trycloudflare.com")
+TUNNEL_URL = "https://metals-consistently-sheet-xml.trycloudflare.com"
 
-# Si se proporciona una URL de túnel por env, se usa, de lo contrario localhost
-if os.getenv("USE_TUNNEL") == "true":
+# Si estamos en Render o se fuerza por ENV, usamos el túnel
+if os.getenv("RENDER") == "true" or os.getenv("USE_TUNNEL") == "true":
     API1_BASE_URL = TUNNEL_URL
+    print(f"PROD MODE: Routing to tunnel -> {API1_BASE_URL}")
+else:
+    print(f"LOCAL MODE: Routing to -> {API1_BASE_URL}")
 
 # Configuración de CORS
 app.add_middleware(
