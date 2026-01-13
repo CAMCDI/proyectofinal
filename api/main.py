@@ -40,7 +40,9 @@ async def get_tasks():
     async with await get_client() as client:
         try:
             response = await client.get("/tasks/")
-            return response.json()
+            if response.is_success:
+                return response.json()
+            raise HTTPException(status_code=response.status_code, detail="Error in API1")
         except httpx.RequestError as exc:
             raise HTTPException(status_code=502, detail=f"Error communicating with API1: {exc}")
 
@@ -60,14 +62,16 @@ async def proxy_upload(task_id: str, file: UploadFile = File(...)):
             # but if it blocks, we need timeout.
             response = await client.post(f"/tasks/{task_id}/", files=files, timeout=300.0)
             
-            if response.status_code != 200:
-                 try:
-                     error_detail = response.json()
-                 except:
-                     error_detail = response.text
-                 raise HTTPException(status_code=response.status_code, detail=error_detail)
+            # Si la respuesta es exitosa (200, 201, 202, etc), devolvemos el JSON directamente
+            if response.is_success:
+                return response.json()
             
-            return response.json()
+            # Si hay error (400, 500, etc), lanzamos la excepción con el detalle
+            try:
+                error_detail = response.json()
+            except:
+                error_detail = response.text
+            raise HTTPException(status_code=response.status_code, detail=error_detail)
             
         except httpx.RequestError as exc:
              raise HTTPException(status_code=502, detail=f"Error uploading to API1: {exc}")
@@ -78,11 +82,10 @@ async def get_result(task_id: str, file_id: str):
         try:
             response = await client.get(f"/tasks/{task_id}/result/{file_id}/")
             
-            if response.status_code != 200:
-                # Pass through the error status code
-                raise HTTPException(status_code=response.status_code, detail="Error fetching result from API1")
+            if response.is_success:
+                return response.json()
 
-            return response.json()
+            raise HTTPException(status_code=response.status_code, detail="Error fetching result from API1")
         except httpx.RequestError as exc:
             raise HTTPException(status_code=502, detail=f"Error communicating with API1: {exc}")
 
