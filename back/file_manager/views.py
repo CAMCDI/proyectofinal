@@ -82,6 +82,21 @@ class HomeView(View):
         ]
         return JsonResponse({'tasks': tasks})
 
+class FileDisplayView(DetailView):
+    """Visualiza el contenido procesado de un archivo."""
+    model = UploadedFile
+    
+    def get(self, request, *args, **kwargs):
+        obj = self.get_object()
+        handler = FileHandlerFactory.get_handler(obj.file_type)
+        if not handler:
+            return JsonResponse({'error': 'No hay handler para este tipo'}, status=400)
+        try:
+            content = handler.process_file(obj.file.path)
+            return JsonResponse({'status': 'success', 'content': content})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
 @method_decorator(csrf_exempt, name='dispatch')
 class TaskDetailView(View):
     """Maneja la ejecución de una tarea específica de ML."""

@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title="Proxy API (API2)", description="Pasarela ligera hacia el backend de ML")
 
 # Configuración del Túnel Cloudflare
-TUNNEL_URL = " https://advisors-derived-cowboy-jade.trycloudflare.com" 
+TUNNEL_URL = "https://advisors-derived-cowboy-jade.trycloudflare.com" 
 API1_BASE_URL = TUNNEL_URL or os.getenv("API1_BASE_URL", "http://127.0.0.1:8000")
 
 # Configuración de CORS
