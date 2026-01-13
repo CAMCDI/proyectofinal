@@ -363,6 +363,20 @@ tbody tr:hover {
     box-shadow: var(--glow-cyan);
 }
 
+.btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 0 5px var(--neon-cyan);
+}
+
+.btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    border-color: var(--text-dim);
+    color: var(--text-dim);
+    background: transparent;
+    box-shadow: none;
+}
+
 /* Upload Area - Techno Style */
 .upload-area {
     border: 2px dashed var(--border-dim);

@@ -313,8 +313,8 @@ class MLManager:
     def analyze_06_viz(file_path):
         """Genera visualizaciones y estadísticas del dataset."""
         try:
-            # Muestreo agresivo para visualización
-            df = MLManager._load_arff_to_df(file_path, max_rows=15000)
+            # Muestreo agresivo para visualización (8,000 para rapidez total)
+            df = MLManager._load_arff_to_df(file_path, max_rows=8000)
             
             # Codificación de la clase para permitir correlación
             from sklearn.preprocessing import LabelEncoder
@@ -323,8 +323,8 @@ class MLManager:
                 df['class_encoded'] = le_class.fit_transform(df['class'])
             
             # Muestreo adicional para gráficos pesados
-            df_stats = df.sample(5000) if len(df) > 5000 else df
-            df_plot = df.sample(1500) if len(df) > 1500 else df
+            df_stats = df.sample(4000) if len(df) > 4000 else df
+            df_plot = df.sample(1000) if len(df) > 1000 else df
             
             head_html = df.head(10).to_html(classes='table table-sm table-hover table-bordered small', border=0)
             describe_html = df_stats.describe().to_html(classes='table table-sm table-hover table-bordered small', border=0)
@@ -395,7 +395,7 @@ class MLManager:
     def analyze_07_split(file_path):
         """Divide el dataset en conjuntos de entrenamiento, validación y prueba."""
         try:
-            df = MLManager._load_arff_to_df(file_path, max_rows=20000)
+            df = MLManager._load_arff_to_df(file_path, max_rows=8000)
             strat = 'protocol_type' if 'protocol_type' in df.columns else None
             
             train, test_val = train_test_split(df, test_size=0.4, random_state=42, stratify=df[strat] if strat else None)
@@ -442,10 +442,13 @@ class MLManager:
     def analyze_08_prep(file_path):
         """Preparación: Limpieza, imputación y escalado."""
         try:
-            df = MLManager._load_arff_to_df(file_path, max_rows=20000)
+            df = MLManager._load_arff_to_df(file_path, max_rows=8000)
             strat = 'protocol_type' if 'protocol_type' in df.columns else None
             train, _ = train_test_split(df, test_size=0.4, random_state=42, stratify=df[strat] if strat else None)
             X_train = train.drop('class', axis=1, errors='ignore').copy()
+            
+            # Usar una muestra de entrenamiento más pequeña para pre-ajustar
+            X_train_small = X_train.sample(4000) if len(X_train) > 4000 else X_train
 
             # Introducción artificial de nulos para demostración
             if 'src_bytes' in X_train.columns:
@@ -510,9 +513,9 @@ class MLManager:
             prep = DataFramePreparer()
             X_final = prep.fit_transform(X_train)
             
-            # Entrenamiento rápido para obtener métricas (como en el Ej 10)
+            # Entrenamiento ultra-rápido para obtener métricas
             y_train = train['class']
-            clf = LogisticRegression(max_iter=500) # Reducido para velocidad
+            clf = LogisticRegression(max_iter=300, solver='liblinear') 
             clf.fit(X_final, y_train)
             
             y_pred = clf.predict(X_final)
@@ -578,7 +581,7 @@ class MLManager:
             X_train_prep = prep.fit_transform(X_train)
             X_val_prep = prep.transform(X_val)
             
-            clf = LogisticRegression(max_iter=500) # Reducido para velocidad
+            clf = LogisticRegression(max_iter=300, solver='liblinear') 
             clf.fit(X_train_prep, y_train)
             
             # Resultados
