@@ -1,4 +1,3 @@
-// js/result.js - Lógica de polling y renderizado de resultados
 document.addEventListener('DOMContentLoaded', async () => {
     const task = AppState.getTask();
     const fileId = AppState.getFileId();
@@ -8,14 +7,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    // UI Elements
     const loadingSection = document.getElementById('loading-section');
     const resultSection = document.getElementById('result-section');
     const errorSection = document.getElementById('error-section');
     const progressText = document.getElementById('progress-text');
     const resultContent = document.getElementById('result-content');
 
-    // Set task info
     document.getElementById('task-title').innerText = task.name;
     document.getElementById('task-description').innerText = task.description;
 
@@ -26,7 +23,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         loadingSection.style.display = 'none';
         resultSection.style.display = 'block';
-
         renderResult(result);
 
     } catch (error) {
@@ -37,7 +33,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function renderResult(data) {
         document.getElementById('result-summary').innerText = data.result || 'Análisis completado exitosamente';
-
         let html = '';
 
         // Métricas
@@ -74,7 +69,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
             html += '</div>';
         }
-
         resultContent.innerHTML = html;
     }
 });

@@ -9,9 +9,7 @@ import shutil
 import nltk
 import pandas as pd
 import numpy as np
-
 from django.conf import settings
-
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import RobustScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
@@ -22,6 +20,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 from sklearn.feature_extraction.text import CountVectorizer
 
+# Cargar recursos de NLTK
 try:
     from .visualizer import MLVisualizer
 except ImportError:
@@ -29,20 +28,17 @@ except ImportError:
     sys.path.append(os.path.dirname(__file__))
     from visualizer import MLVisualizer
 
-# Ensure NLTK resources are available
 try:
     nltk.data.find('corpora/stopwords')
 except LookupError:
     nltk.download('stopwords')
 
-# --- Shared Utilities ---
+# --- Utilidades Compartidas ---
 
 class MLStripper(html.parser.HTMLParser):
     def __init__(self):
         super().__init__()
         self.reset()
-        self.strict = False
-        self.convert_charrefs = True
         self.fed = []
 
     def handle_data(self, d):
@@ -56,7 +52,7 @@ def strip_tags(html_content):
     s.feed(html_content)
     return s.get_data()
 
-# --- Spam Detection Logic (Notebook 05) ---
+# --- Lógica de Detección de Spam ---
 
 class EmailParser:
     def __init__(self):
@@ -65,7 +61,7 @@ class EmailParser:
         self.punctuation = list(string.punctuation)
 
     def parse(self, email_path):
-        """Parse an email."""
+        """Parsea un archivo de correo electrónico."""
         try:
             with open(email_path, 'r', errors='ignore') as e:
                 msg = email.message_from_file(e)
@@ -91,23 +87,16 @@ class EmailParser:
         return body
 
     def tokenize(self, text):
-        """Transform a text string in tokens. perform two main actions,
-        clean the punctuation symbols and do stemming of the text."""
+        """Limpia puntuación, tabulaciones y realiza stemming."""
         for c in self.punctuation:
             text = text.replace(c, "")
-        text = text.replace("\t", " ")
-        text = text.replace("\n", " ")
+        text = text.replace("\t", " ").replace("\n", " ")
         tokens = list(filter(None, text.split(" ")))
-        # Stemming of the tokens
         return [self.stemmer.stem(w) for w in tokens if w not in self.stopwords]
 
-# --- NSL-KDD Pipelines (Notebooks 08/09) ---
-
-# --- Custom Transformers (Notebook 09) ---
+# --- Transformadores Personalizados ---
 
 class DeleteNanRows(BaseEstimator, TransformerMixin):
-    def __init__(self):
-        pass
     def fit(self, X, y=None):
         return self
     def transform(self, X, y=None):
@@ -156,304 +145,166 @@ class DataFramePreparer(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
         num_attribs = list(X.select_dtypes(exclude=['object']))
         cat_attribs = list(X.select_dtypes(include=['object']))
-        
-        # Consistent with Notebook 10
         num_pipeline = Pipeline([
             ('imputer', SimpleImputer(strategy="median")),
             ('rbst_scaler', RobustScaler()),
         ])
-
         self._full_pipeline = ColumnTransformer([
             ("num", num_pipeline, num_attribs),
             ("cat", CustomOneHotEncoding(), cat_attribs),
         ])
         self._full_pipeline.fit(X)
-        
-        # Optimized column name retrieval
         cat_transformer = self._full_pipeline.named_transformers_['cat']
         cat_cols = cat_transformer._columns if hasattr(cat_transformer, '_columns') and cat_transformer._columns else []
         self._columns = num_attribs + list(cat_cols)
         return self
 
     def transform(self, X, y=None):
-        X_copy = X.copy()
-        X_prep = self._full_pipeline.transform(X_copy)
-        return pd.DataFrame(X_prep, columns=self._columns, index=X_copy.index)
+        X_prep = self._full_pipeline.transform(X.copy())
+        return pd.DataFrame(X_prep, columns=self._columns, index=X.index)
 
-# --- ML Manager for Proyecto Final ---
+# --- Gestor de Procesamiento ML ---
 
 class MLManager:
     @staticmethod
     def analyze_05_spam(file_path):
-        """Logic from Notebook 05: Regresión Logística (Spam) - ZIP Processing"""
+        """Procesa archivos ZIP con correos para detección de Spam."""
         try:
             if not zipfile.is_zipfile(file_path):
-                return {"success": False, "error": "El archivo debe ser un ZIP que contenga la carpeta data/ con emails y el archivo index"}
+                return {"success": False, "error": "El archivo debe ser un ZIP"}
             
-            # Extract ZIP
             extract_dir = os.path.join(os.path.dirname(file_path), "extracted_" + os.path.basename(file_path))
             os.makedirs(extract_dir, exist_ok=True)
-            
             with zipfile.ZipFile(file_path, 'r') as zip_ref:
                 zip_ref.extractall(extract_dir)
             
-            # 1. Map all files in ZIP for O(1) access by filename
             file_map = {}
             index_path = None
-            found_files = []
-            
             for root, dirs, files in os.walk(extract_dir):
                 for f in files:
-                    found_files.append(f)
-                    file_map[f] = os.path.join(root, f) # key: filename, value: full_path
+                    file_map[f] = os.path.join(root, f)
                     if f.lower() in ['index', 'index.txt']:
                         index_path = os.path.join(root, f)
             
-            # 2. Server-side Index Fallback
             if not index_path:
-                # Ruta absoluta detectada: /home/aza/Documentos/simulacion/Datasets/datasets/trec07p/full/index.txt
-                # Intentamos construirla dinamicamente o usar hardcode si es necesario en este entorno
-                
-                # Opcion 1: Subir 3 niveles desde back (back -> result -> simulacion -> Datasets)
-                # BASE_DIR es .../proyectoFinal/back
                 possible_paths = [
-                    os.path.join(settings.BASE_DIR.parent.parent, "Datasets/datasets/trec07p/full/index.txt"), # .../simulacion/Datasets...
-                    "/home/aza/Documentos/simulacion/Datasets/datasets/trec07p/full/index.txt" # Hardcoded fallback backup
+                    os.path.join(settings.BASE_DIR.parent.parent, "Datasets/datasets/trec07p/full/index.txt"),
+                    "/home/aza/Documentos/simulacion/Datasets/datasets/trec07p/full/index.txt"
                 ]
-                
-                server_index_path = None
                 for p in possible_paths:
                     if os.path.exists(p):
-                        server_index_path = p
                         index_path = p
-                        print(f"[DEBUG] Usando index del servidor: {index_path}")
                         break
             
             if not index_path:
                 shutil.rmtree(extract_dir, ignore_errors=True)
-                return {
-                    "success": False, 
-                    "error": f"No se encontró 'index' en el ZIP ni en el servidor. Buscado en {[p for p in possible_paths]}. Archivos recibidos: {found_files[:5]}..."
-                }
+                return {"success": False, "error": "No se encontró el índice de correos"}
             
-            # 3. Read index lines
             with open(index_path, 'r', errors='ignore') as f:
                 lines = f.readlines()
             
-            # 4. Process emails
-            X_raw = []
-            y_raw = []
+            X_raw, y_raw = [], []
             parser = EmailParser()
-            processed = 0
-            errors = 0
-            
-            for line in lines[:10000]:  # Limit 10k
-                line = line.strip()
-                if not line: continue
-                
-                parts = line.split(" ../")
+            for line in lines[:10000]:
+                parts = line.strip().split(" ../")
                 if len(parts) < 2: continue
                 
-                label = parts[0]
-                rel_path = parts[1] # e.g. data/inmail.1
-                target_filename = os.path.basename(rel_path) # inmail.1
-                
-                # BUSCAR ARCHIVO: Primero en el mapa del ZIP (lo que subió el usuario)
-                email_path = file_map.get(target_filename)
-                
-                # Si no está en el ZIP, intentar ruta absoluta (servidor)
+                label, rel_path = parts[0], parts[1]
+                email_path = file_map.get(os.path.basename(rel_path))
                 if not email_path:
-                     # ../data/inmail.1 relative to full/index.txt -> trec07p/data/inmail.1
-                     server_file_path = os.path.normpath(os.path.join(os.path.dirname(index_path), rel_path))
-                     if os.path.exists(server_file_path):
-                         email_path = server_file_path
+                    server_path = os.path.normpath(os.path.join(os.path.dirname(index_path), rel_path))
+                    if os.path.exists(server_path): email_path = server_path
                 
                 if email_path and os.path.exists(email_path):
                     content = parser.parse(email_path)
                     if content and "error" not in content and (content['subject'] or content['body']):
-                        text = " ".join(content['subject']) + " " + " ".join(content['body'])
-                        X_raw.append(text)
+                        X_raw.append(" ".join(content['subject']) + " " + " ".join(content['body']))
                         y_raw.append(label)
-                        processed += 1
-                else:
-                    errors += 1
             
-            # Cleanup
             shutil.rmtree(extract_dir, ignore_errors=True)
+            if not X_raw: return {"success": False, "error": "No se pudieron procesar los correos"}
             
-            if not X_raw:
-                return {"success": False, "error": f"No se pudieron procesar emails. Index encontrado pero no coinciden archivos. Procesados: {processed}, Errores: {errors}"}
-            
-            # 5. ML Pipeline
+            # Entrenamiento y evaluación
             split_idx = int(len(X_raw) * 0.8)
-            X_train_raw = X_raw[:split_idx]
-            y_train = y_raw[:split_idx]
-            X_test_raw = X_raw[split_idx:]
-            y_test = y_raw[split_idx:]
-            
-            # Vectorize
             vectorizer = CountVectorizer()
-            X_train_vec = vectorizer.fit_transform(X_train_raw)
-            X_test_vec = vectorizer.transform(X_test_raw)
+            X_train_vec = vectorizer.fit_transform(X_raw[:split_idx])
+            X_test_vec = vectorizer.transform(X_raw[split_idx:])
             
-            # Train Model
             clf = LogisticRegression(max_iter=1000)
-            clf.fit(X_train_vec, y_train)
+            clf.fit(X_train_vec, y_raw[:split_idx])
+            test_acc = accuracy_score(y_raw[split_idx:], clf.predict(X_test_vec))
             
-            # Predict
-            y_pred = clf.predict(X_test_vec)
-            test_acc = accuracy_score(y_test, y_pred)
-            
-            # Tables para frontend
+            # Preparación de resultados para el frontend
             vocab = vectorizer.get_feature_names_out()
+            cv_html = pd.DataFrame(X_train_vec[:5, :10].toarray(), columns=vocab[:10]).to_html(classes='table table-sm table-hover small', border=0)
             
-            # Tabla 1: CountVectorizer sample
-            cv_df = pd.DataFrame(
-                X_train_vec[:5, :10].toarray(),
-                columns=vocab[:10]
-            )
-            cv_html = cv_df.to_html(classes='table table-sm table-hover small', border=0)
-            
-            # Tabla 2: OneHotEncoder sample
             words = X_raw[0].split()[:10]
-            ohe = OneHotEncoder(handle_unknown='ignore')
-            words_reshaped = [[w] for w in words]
-            ohe.fit(words_reshaped)
-            ohe_encoded = ohe.transform(words_reshaped).toarray()
-            ohe_df = pd.DataFrame(ohe_encoded, columns=ohe.get_feature_names_out())
-            ohe_html = ohe_df.to_html(classes='table table-sm table-hover small', border=0)
+            ohe = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
+            ohe_encoded = ohe.fit_transform([[w] for w in words])
+            ohe_html = pd.DataFrame(ohe_encoded, columns=ohe.get_feature_names_out()).to_html(classes='table table-sm table-hover small', border=0)
             
-            # Tabla 3: Predicciones
-            pred_df = pd.DataFrame({
-                'Real': y_test[:10],
-                'Predicho': y_pred[:10]
-            })
+            pred_df = pd.DataFrame({'Real': y_raw[split_idx:split_idx+10], 'Predicho': clf.predict(X_test_vec)[:10]})
             pred_html = pred_df.to_html(classes='table table-sm table-striped small', border=0, index=False)
-            
-            spam_count = y_raw.count('spam')
-            ham_count = y_raw.count('ham')
             
             return {
                 "success": True,
-                "task": "05: Regresión Logística (Spam)",
-                "result": f"Modelo entrenado con Accuracy: {test_acc:.4f}",
-                "details": f"Se procesaron {len(X_raw)} emails ({len(X_train_raw)} train, {len(X_test_raw)} test). Siguiendo la lógica del Notebook 05.",
+                "task": "05: Detección de Spam",
+                "result": f"Modelo entrenado. Exactitud: {test_acc:.4f}",
                 "metrics": [
                     {"label": "Accuracy", "value": f"{test_acc:.4f}"},
                     {"label": "Total Correos", "value": len(X_raw)},
-                    {"label": "SPAM", "value": spam_count},
-                    {"label": "HAM", "value": ham_count},
-                    {"label": "Vocabulario", "value": len(vocab)}
+                    {"label": "SPAM", "value": y_raw.count('spam')},
+                    {"label": "HAM", "value": y_raw.count('ham')}
                 ],
                 "tables": [
-                    {"title": "1. CountVectorizer (Primeros 10 tokens)", "content": cv_html},
-                    {"title": "2. OneHotEncoder (Muestra)", "content": ohe_html},
-                    {"title": "3. Predicciones vs Real (Test Set)", "content": pred_html}
-                ],
-                "graphics": []
+                    {"title": "1. Muestra CountVectorizer", "content": cv_html},
+                    {"title": "2. Muestra OneHotEncoder", "content": ohe_html},
+                    {"title": "3. Comparativa de Predicciones", "content": pred_html}
+                ]
             }
-            
         except Exception as e:
-            import traceback
-            return {"success": False, "error": f"{str(e)}\n{traceback.format_exc()}"}
-
+            return {"success": False, "error": str(e)}
 
     @staticmethod
     def _load_arff_to_df(file_path):
-        """Helper to load ARFF with normalization for nominal attribute spaces."""
-        print(f"[DEBUG] Leyendo archivo físico: {file_path}")
+        """Carga y normaliza un archivo ARFF."""
         with open(file_path, 'r') as f:
             content = f.read()
         
-        print(f"[DEBUG] Normalizando contenido ARFF (Regex)...")
-        # Regex to normalize nominal attribute declarations:
-        def clean_braces(match):
-            attr_part = match.group(1)
-            braces_content = match.group(2)
-            cleaned = re.sub(r"\s*,\s*", ",", braces_content.strip())
-            return f"{attr_part}{{{cleaned}}}"
-
+        # Corregir formato de atributos nominales
         pattern = re.compile(r"(@ATTRIBUTE\s+.*?){\s*(.*?)\s*}", re.IGNORECASE)
-        fixed_content = pattern.sub(clean_braces, content)
+        fixed_content = pattern.sub(lambda m: f"{m.group(1)}{{{re.sub(r's*,s*', ',', m.group(2).strip())}}}", content)
         
-        print(f"[DEBUG] Parseando con liac-arff (esto puede tardar si el archivo es grande)...")
         dataset = arff.loads(fixed_content)
-        attributes = [attr[0] for attr in dataset['attributes']]
-        print(f"[DEBUG] Creando DataFrame de pandas...")
-        return pd.DataFrame(dataset['data'], columns=attributes)
+        return pd.DataFrame(dataset['data'], columns=[attr[0] for attr in dataset['attributes']])
 
     @staticmethod
     def analyze_06_viz(file_path):
-        """Logic from Notebook 06: Visualización de DataSet."""
-        import time
-        t0 = time.time()
+        """Genera visualizaciones y estadísticas del dataset."""
         try:
-            from sklearn.preprocessing import LabelEncoder
-            print("[DEBUG] Cargando ARFF...")
             df = MLManager._load_arff_to_df(file_path)
-            print(f"[DEBUG] ARFF cargado en {time.time()-t0:.2f}s. Filas: {len(df)}")
-            
-            # --- PUNTOS DE OPTIMIZACIÓN CRÍTICOS ---
-            # Para las tablas (describe/head), usamos una muestra de 10k si es muy grande
+            # Muestreo para mayor velocidad
             df_stats = df.sample(10000) if len(df) > 10000 else df
-            # Para los gráficos, usamos solo 1000 puntos para que matplotlib sea instantáneo
-            df_plot_sample = df.sample(1000) if len(df) > 1000 else df
+            df_plot = df.sample(1000) if len(df) > 1000 else df
             
-            # 1. Statistical Tables (Notebook 06)
-            print("[DEBUG] Renderizando tablas...")
             head_html = df.head(10).to_html(classes='table table-sm table-hover table-bordered small', border=0)
             describe_html = df_stats.describe().to_html(classes='table table-sm table-hover table-bordered small', border=0)
             
-            counts_html = ""
-            if 'protocol_type' in df.columns:
-                counts_html = df['protocol_type'].value_counts().to_frame().to_html(classes='table table-sm table-hover table-bordered small', border=0)
-            
-            # 2. Pre-processing for correlation
-            df_plot = df_plot_sample.copy()
-            le = LabelEncoder()
-            if 'class' in df_plot.columns:
-                df_plot['class'] = le.fit_transform(df_plot['class'].astype(str))
-            
-            # 3. Graphics
-            print("[DEBUG] Iniciando generación de gráficos rápidos...")
-            numeric_df = df_plot.select_dtypes(include=[np.number])
-            
             graphics = []
-            # Categorical Count
             if 'protocol_type' in df.columns:
-                graphics.append({"title": "Distribución de Protocol Type", "image": MLVisualizer.plot_categorical_count(df_stats, 'protocol_type')})
+                graphics.append({"title": "Protocol Type", "image": MLVisualizer.plot_categorical_count(df_stats, 'protocol_type')})
             
-            # Histogramas: limitamos a las primeras 12 columnas numéricas para no saturar
-            print("[DEBUG] -> Generando Histogramas (Top 12)...")
-            cols_to_hist = numeric_df.columns[:12]
-            graphics.append({"title": "Histogramas (Primeras 12 variables)", "image": MLVisualizer.plot_all_histograms(numeric_df[cols_to_hist])})
+            numeric_df = df_plot.select_dtypes(include=[np.number])
+            graphics.append({"title": "Histogramas (Top 12)", "image": MLVisualizer.plot_all_histograms(numeric_df[numeric_df.columns[:12]])})
+            graphics.append({"title": "Matriz de Correlación", "image": MLVisualizer.plot_correlation_matrix(numeric_df)})
             
-            # Matrix: con 1000 filas es muy rápido
-            print("[DEBUG] -> Generando Matriz de Correlación...")
-            graphics.append({"title": "Matriz de Correlación (Heatmap)", "image": MLVisualizer.plot_correlation_matrix(numeric_df)})
-            
-            # Scatter Matrix (specific attributes)
-            scatter_attrs = ["same_srv_rate", "dst_host_srv_count", "class", "dst_host_same_srv_rate"]
-            existing_attrs = [a for a in scatter_attrs if a in df_plot.columns]
-            if len(existing_attrs) > 1:
-                print("[DEBUG] -> Generando Matriz de Dispersión...")
-                graphics.append({"title": "Matriz de Dispersión", "image": MLVisualizer.plot_scatter_matrix(df_plot, existing_attrs)})
-            
-            print("[DEBUG] Análisis finalizado correctamente.")
             return {
                 "success": True,
-                "task": "06: Visualización de DataSet",
-                "result": f"Análisis completo para {len(df)} registros.",
-                "details": "Se han generado estadísticas descriptivas y visualizaciones dinámicas según el cuaderno 06.",
-                "metrics": [
-                    {"label": "Registros Total", "value": len(df)},
-                    {"label": "Protocolos", "value": len(df['protocol_type'].unique())},
-                    {"label": "Atributos", "value": len(df.columns)}
-                ],
+                "task": "06: Visualización",
+                "metrics": [{"label": "Registros", "value": len(df)}, {"label": "Atributos", "value": len(df.columns)}],
                 "tables": [
-                    {"title": "Primeros 10 Registros (df.head)", "content": head_html},
-                    {"title": "Estadísticas Descriptivas (df.describe)", "content": describe_html},
-                    {"title": "Conteo por Protocolo (value_counts)", "content": counts_html}
+                    {"title": "Primeros 10 registros", "content": head_html},
+                    {"title": "Estadísticas descriptivas", "content": describe_html}
                 ],
                 "graphics": graphics
             }
@@ -462,44 +313,27 @@ class MLManager:
 
     @staticmethod
     def analyze_07_split(file_path):
-        """Logic from Notebook 07: División del DataSet (60/20/20 Split)."""
+        """Divide el dataset en conjuntos de entrenamiento, validación y prueba (60/20/20)."""
         try:
             df = MLManager._load_arff_to_df(file_path)
+            strat = 'protocol_type' if 'protocol_type' in df.columns else None
             
-            # Notebook 07: Split 60/40 then split the 40 into 50/50 (results in 60/20/20)
-            # Seed 42 and stratification on protocol_type
-            stratify_col = 'protocol_type' if 'protocol_type' in df.columns else None
+            train, test_val = train_test_split(df, test_size=0.4, random_state=42, stratify=df[strat] if strat else None)
+            val, test = train_test_split(test_val, test_size=0.5, random_state=42, stratify=test_val[strat] if strat else None)
             
-            # Initial Split (60% Train, 40% Test)
-            train_set, test_val_set = train_test_split(
-                df, test_size=0.4, random_state=42, 
-                stratify=df[stratify_col] if stratify_col else None
-            )
-            
-            # Secondary Split (Split the 40% into 20% Val, 20% Test)
-            val_set, test_set = train_test_split(
-                test_val_set, test_size=0.5, random_state=42,
-                stratify=test_val_set[stratify_col] if stratify_col else None
-            )
-            
-            # Verificación Visual (Histograms of protocol_type distribution)
             graphics = []
-            if stratify_col:
-                graphics.append({"title": f"Distribución Original ({len(df)} recs)", "image": MLVisualizer.plot_categorical_count(df, stratify_col, f"Original: {stratify_col}")})
-                graphics.append({"title": f"Train Set ({len(train_set)} recs)", "image": MLVisualizer.plot_categorical_count(train_set, stratify_col, f"Train: {stratify_col}")})
-                graphics.append({"title": f"Validation Set ({len(val_set)} recs)", "image": MLVisualizer.plot_categorical_count(val_set, stratify_col, f"Validation: {stratify_col}")})
-                graphics.append({"title": f"Test Set ({len(test_set)} recs)", "image": MLVisualizer.plot_categorical_count(test_set, stratify_col, f"Test: {stratify_col}")})
+            if strat:
+                graphics.append({"title": "Distribución Original", "image": MLVisualizer.plot_categorical_count(df, strat)})
+                graphics.append({"title": "Train Set", "image": MLVisualizer.plot_categorical_count(train, strat)})
+                graphics.append({"title": "Test Set", "image": MLVisualizer.plot_categorical_count(test, strat)})
 
             return {
                 "success": True,
-                "task": "07: División del DataSet",
-                "result": f"Datos divididos en 60/20/20 (Train/Val/Test).",
-                "details": f"Particionado completo con semilla 42 y estratificación por '{stratify_col}'.",
+                "task": "07: División de Datos",
                 "metrics": [
-                    {"label": "Longitud Training Set", "value": len(train_set)},
-                    {"label": "Longitud Validación Set", "value": len(val_set)},
-                    {"label": "Longitud Test Set", "value": len(test_set)},
-                    {"label": "Total Registros", "value": len(df)}
+                    {"label": "Training Set", "value": len(train)},
+                    {"label": "Validation Set", "value": len(val)},
+                    {"label": "Test Set", "value": len(test)}
                 ],
                 "graphics": graphics
             }
@@ -508,232 +342,103 @@ class MLManager:
 
     @staticmethod
     def analyze_08_prep(file_path):
-        """Logic from Notebook 08: Preparación del DataSet."""
+        """Preparación: Limpieza, imputación y escalado."""
         try:
             df = MLManager._load_arff_to_df(file_path)
-            
-            # 1. 60/20/20 Split
-            stratify_col = 'protocol_type' if 'protocol_type' in df.columns else None
-            train_set, test_val_set = train_test_split(
-                df, test_size=0.4, random_state=42, 
-                stratify=df[stratify_col] if stratify_col else None
-            )
-            val_set, test_set = train_test_split(
-                test_val_set, test_size=0.5, random_state=42,
-                stratify=test_val_set[stratify_col] if stratify_col else None
-            )
+            strat = 'protocol_type' if 'protocol_type' in df.columns else None
+            train, _ = train_test_split(df, test_size=0.4, random_state=42, stratify=df[strat] if strat else None)
+            X_train = train.drop('class', axis=1, errors='ignore').copy()
 
-            # 2. X/y Separation
-            X_train = train_set.drop('class', axis=1, errors='ignore').copy()
-
-            # 3. Artificial Introduction of Nulls
-            if 'src_bytes' in X_train.columns and 'dst_bytes' in X_train.columns:
+            # Introducción artificial de nulos para demostración
+            if 'src_bytes' in X_train.columns:
                 X_train.loc[(X_train['src_bytes'] > 400) & (X_train['src_bytes'] < 800), 'src_bytes'] = np.nan
-                X_train.loc[(X_train['dst_bytes'] > 500) & (X_train['dst_bytes'] < 2000), 'dst_bytes'] = np.nan
-
-            # Table 1: Rows with Nulls
-            null_rows = X_train[X_train.isnull().any(axis=1)].head(10)
-            null_html = null_rows.to_html(classes='table table-sm table-hover small', border=0)
-
-            # 4. Imputation
-            X_train_num = X_train.select_dtypes(include=[np.number])
+            
+            # Imputación
+            X_num = X_train.select_dtypes(include=[np.number])
             imputer = SimpleImputer(strategy='median')
-            X_train_num_imputed = imputer.fit_transform(X_train_num)
-            df_imputed = pd.DataFrame(X_train_num_imputed, columns=X_train_num.columns, index=X_train_num.index)
-            imputed_html = df_imputed.head(10).to_html(classes='table table-sm table-hover small', border=0)
-
-            # 5. Encoding
-            X_train_cat = X_train.select_dtypes(exclude=[np.number])
-            oh_encoder = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
-            if not X_train_cat.empty:
-                X_encoded = oh_encoder.fit_transform(X_train_cat)
-                df_encoded = pd.DataFrame(X_encoded, columns=oh_encoder.get_feature_names_out(), index=X_train_cat.index)
-                encoded_html = df_encoded.head(10).to_html(classes='table table-sm table-hover small', border=0)
-            else:
-                encoded_html = "<p>No hay atributos categóricos.</p>"
-
-            # 6. Scaling
-            scale_cols = [c for c in ['src_bytes', 'dst_bytes'] if c in X_train_num.columns]
-            if scale_cols:
-                robust_scaler = RobustScaler()
-                X_scaled = robust_scaler.fit_transform(df_imputed[scale_cols])
-                df_scaled = pd.DataFrame(X_scaled, columns=scale_cols, index=df_imputed.index)
-                scaled_html = df_scaled.head(10).to_html(classes='table table-sm table-hover small', border=0)
-            else:
-                scaled_html = "<p>Columnas src_bytes/dst_bytes no encontradas.</p>"
-
+            df_imputed = pd.DataFrame(imputer.fit_transform(X_num), columns=X_num.columns, index=X_num.index)
+            
+            # Codificación
+            X_cat = X_train.select_dtypes(exclude=[np.number])
+            encoded_html = pd.DataFrame(OneHotEncoder(sparse_output=False).fit_transform(X_cat)).head(10).to_html(classes='table table-sm', border=0) if not X_cat.empty else "<p>Sin categóricos</p>"
+            
             return {
                 "success": True,
-                "task": "08: Preparación del DataSet",
-                "result": "Preparación completa según Cuaderno 08.",
-                "details": f"Procesados {len(df)} registros: división, imputación, codificación y escalado.",
-                "metrics": [
-                    {"label": "Train Set", "value": len(train_set)},
-                    {"label": "Valores Nulos Detectados", "value": int(X_train.isnull().any(axis=1).sum())}
-                ],
+                "task": "08: Preparación",
+                "metrics": [{"label": "Nulos detectados", "value": int(X_train.isnull().any(axis=1).sum())}],
                 "tables": [
-                    {"title": "1. Filas con Valores Nulos Encontrados", "content": null_html},
-                    {"title": "2. Tras Imputación (Median)", "content": imputed_html},
-                    {"title": "3. Tras Codificación (OneHot)", "content": encoded_html},
-                    {"title": "4. Tras Escalado (RobustScaler)", "content": scaled_html}
-                ],
-                "graphics": []
+                    {"title": "1. Filas con nulos", "content": X_train[X_train.isnull().any(axis=1)].head(10).to_html(classes='table table-sm', border=0)},
+                    {"title": "2. Tras Imputación", "content": df_imputed.head(10).to_html(classes='table table-sm', border=0)},
+                    {"title": "3. Tras Codificación", "content": encoded_html}
+                ]
             }
         except Exception as e:
             return {"success": False, "error": str(e)}
 
     @staticmethod
     def analyze_09_pipelines(file_path):
-        """Logic from Notebook 09: Pipelines Personalizados."""
+        """Uso de Pipelines personalizados para transformaciones."""
         try:
             df = MLManager._load_arff_to_df(file_path)
+            strat = 'protocol_type' if 'protocol_type' in df.columns else None
+            train, _ = train_test_split(df, test_size=0.4, random_state=42, stratify=df[strat] if strat else None)
+            X_train = train.drop('class', axis=1, errors='ignore').copy()
+
+            # Pipeline full
+            prep = DataFramePreparer()
+            X_final = prep.fit_transform(X_train)
             
-            # 1. Split and X/y Separation (Notebook 09 flow)
-            stratify_col = 'protocol_type' if 'protocol_type' in df.columns else None
-            train_set, test_val_set = train_test_split(
-                df, test_size=0.4, random_state=42, 
-                stratify=df[stratify_col] if stratify_col else None
-            )
-            X_train = train_set.drop('class', axis=1, errors='ignore').copy()
-
-            # Artificial Nulls for demonstration (if present)
-            if 'src_bytes' in X_train.columns and 'dst_bytes' in X_train.columns:
-                X_train.loc[(X_train['src_bytes'] > 400) & (X_train['src_bytes'] < 800), 'src_bytes'] = np.nan
-                X_train.loc[(X_train['dst_bytes'] > 500) & (X_train['dst_bytes'] < 2000), 'dst_bytes'] = np.nan
-
-            # table_results list to store transformation stages
-            tables = []
-
-            # Stage 1: DeleteNanRows
-            delete_nan = DeleteNanRows()
-            X_prep_1 = delete_nan.fit_transform(X_train)
-            tables.append({"title": "1. Custom: DeleteNanRows (Post-dropna)", "content": X_prep_1.head(10).to_html(classes='table table-sm table-hover small', border=0)})
-
-            # Stage 2: CustomScaler
-            scale_cols = [c for c in ['src_bytes', 'dst_bytes'] if c in X_prep_1.columns]
-            if scale_cols:
-                custom_scaler = CustomScaler(scale_cols)
-                X_prep_2 = custom_scaler.fit_transform(X_prep_1)
-                tables.append({"title": f"2. Custom: CustomScaler ({', '.join(scale_cols)})", "content": X_prep_2.head(10)[scale_cols].to_html(classes='table table-sm table-hover small', border=0)})
-            else:
-                X_prep_2 = X_prep_1
-
-            # Stage 3: Full Pipeline (Professional Integration)
-            num_attribs = list(X_train.select_dtypes(exclude=['object']))
-            cat_attribs = list(X_train.select_dtypes(include=['object']))
-            
-            num_pipeline = Pipeline([
-                ('imputer', SimpleImputer(strategy="median")),
-                ('rbst_scaler', RobustScaler()),
-            ])
-
-            full_pipeline = ColumnTransformer([
-                ("num", num_pipeline, num_attribs),
-                ("cat", OneHotEncoder(sparse_output=False, handle_unknown='ignore'), cat_attribs),
-            ])
-
-            X_final = full_pipeline.fit_transform(X_train)
-            
-            # Reconstruct DataFrame for display
-            try:
-                # Attempt to get dummies style column names
-                cat_encoder = full_pipeline.named_transformers_['cat']
-                cat_cols = list(cat_encoder.get_feature_names_out(cat_attribs))
-                final_cols = num_attribs + cat_cols
-                df_final = pd.DataFrame(X_final, columns=final_cols, index=X_train.index)
-                tables.append({"title": "3. Full Pipeline: ColumnTransformer Kết quả", "content": df_final.head(10).to_html(classes='table table-sm table-hover small', border=0)})
-            except:
-                tables.append({"title": "3. Full Pipeline: Kết quả (Raw Array)", "content": f"<p>Array shape: {X_final.shape}</p>"})
-
             return {
                 "success": True,
-                "task": "09: Pipelines Personalizados",
-                "result": "Pipeline de transformación diseñado con éxito.",
-                "details": "Se han implementado transformadores personalizados y una integración con ColumnTransformer.",
-                "metrics": [
-                    {"label": "Atributos Numéricos", "value": len(num_attribs)},
-                    {"label": "Atributos Categóricos", "value": len(cat_attribs)},
-                    {"label": "Total Features Final", "value": X_final.shape[1]}
-                ],
-                "tables": tables,
-                "graphics": []
+                "task": "09: Pipelines",
+                "metrics": [{"label": "Atributos finales", "value": X_final.shape[1]}],
+                "tables": [{"title": "Resultado del Pipeline", "content": X_final.head(10).to_html(classes='table table-sm', border=0)}]
             }
         except Exception as e:
             return {"success": False, "error": str(e)}
 
     @staticmethod
     def analyze_10_eval(file_path):
-        """Logic from Notebook 10: Evaluación de Resultados."""
+        """Evaluación final del modelo de Regresión Logística."""
         try:
             df = MLManager._load_arff_to_df(file_path)
+            strat = 'protocol_type' if 'protocol_type' in df.columns else None
+            train, rest = train_test_split(df, test_size=0.4, random_state=42, stratify=df[strat] if strat else None)
+            val, test = train_test_split(rest, test_size=0.5, random_state=42, stratify=rest[strat] if strat else None)
             
-            # 1. Stratified Split (60/20/20)
-            stratify_col = 'protocol_type' if 'protocol_type' in df.columns else None
-            train_set, test_val_set = train_test_split(
-                df, test_size=0.4, random_state=42, 
-                stratify=df[stratify_col] if stratify_col else None
-            )
-            val_set, test_set = train_test_split(
-                test_val_set, test_size=0.5, random_state=42,
-                stratify=test_val_set[stratify_col] if stratify_col else None
-            )
+            X_train = train.drop("class", axis=1, errors='ignore')
+            y_train = train["class"] if "class" in train.columns else None
+            X_val = val.drop("class", axis=1, errors='ignore')
+            y_val = val["class"] if "class" in val.columns else None
 
-            # 2. X/y Separation for Train and Validation
-            X_train = train_set.drop("class", axis=1, errors='ignore')
-            y_train = train_set["class"].copy() if "class" in train_set.columns else None
-            X_val = val_set.drop("class", axis=1, errors='ignore')
-            y_val = val_set["class"].copy() if "class" in val_set.columns else None
+            # Procesamiento y entrenamiento
+            prep = DataFramePreparer()
+            X_train_prep = prep.fit_transform(X_train)
+            X_val_prep = prep.transform(X_val)
             
-            X_df = df.drop("class", axis=1, errors='ignore')
-
-            # 3. Transform Data
-            data_preparer = DataFramePreparer()
-            data_preparer.fit(X_train) # Fit ONLY on training data (ML Best Practice & Faster)
-            
-            X_train_prep = data_preparer.transform(X_train)
-            X_val_prep = data_preparer.transform(X_val)
-
-            # 4. Train Logistic Regression
-            clf = LogisticRegression(max_iter=1000, solver='lbfgs') # Reduced max_iter for speed
+            clf = LogisticRegression(max_iter=1000)
             clf.fit(X_train_prep, y_train)
-
-            # 5. Metrics
-            train_acc = clf.score(X_train_prep, y_train)
-            val_acc = clf.score(X_val_prep, y_val)
             
-            # 6. Tables for Frontend
-            # Table 1: Initial Dataset View
-            head_html = df.head(10).to_html(classes='table table-sm table-hover small', border=0)
+            # Resultados
+            y_pred = clf.predict(X_val_prep)
+            comp_df = pd.DataFrame({'Real': y_val.values[:10], 'Predicho': y_pred[:10]})
             
-            # Table 2: X_train (Before Prep)
-            xtrain_html = X_train.head(10).to_html(classes='table table-sm table-hover small', border=0)
-            
-            # Table 3: Prediction Comparison (Sample of 10)
-            y_val_pred = clf.predict(X_val_prep)
-            comparison_df = pd.DataFrame({
-                'Real': y_val.values[:10] if y_val is not None else [],
-                'Predicho': y_val_pred[:10]
-            })
-            comparison_html = comparison_df.to_html(classes='table table-sm table-hover table-striped small', border=0, index=False)
-
             return {
                 "success": True,
-                "task": "10: Evaluación de Resultados",
-                "result": f"Modelo Logístico entrenado (Accuracy Val: {val_acc:.4f})",
-                "details": "Entrenamiento de regresión logística sobre conjunto de datos estratificado (60/20/20).",
+                "task": "10: Evaluación",
+                "result": f"Exactitud Validación: {clf.score(X_val_prep, y_val):.4f}",
                 "metrics": [
-                    {"label": "Training Accuracy", "value": f"{train_acc:.4f}"},
-                    {"label": "Validation Accuracy", "value": f"{val_acc:.4f}"},
-                    {"label": "Training Set", "value": len(X_train)},
-                    {"label": "Validation Set", "value": len(X_val)},
-                    {"label": "Test Set", "value": len(test_set)}
+                    {"label": "Train Acc", "value": f"{clf.score(X_train_prep, y_train):.4f}"},
+                    {"label": "Val Acc", "value": f"{clf.score(X_val_prep, y_val):.4f}"},
+                    {"label": "Train Set", "value": len(X_train)},
+                    {"label": "Val Set", "value": len(X_val)},
+                    {"label": "Test Set", "value": len(test)}
                 ],
                 "tables": [
-                    {"title": "1. Vista inicial del Dataset (KDDTrain+)", "content": head_html},
-                    {"title": "2. Atributos de Entrenamiento (X_train)", "content": xtrain_html},
-                    {"title": "3. Comparativa de Predicciones (Real vs Predicho)", "content": comparison_html}
-                ],
-                "graphics": []
+                    {"title": "1. Vista inicial Dataset", "content": df.head(10).to_html(classes='table table-sm', border=0)},
+                    {"title": "2. Atributos de Entrenamiento", "content": X_train.head(10).to_html(classes='table table-sm', border=0)},
+                    {"title": "3. Comparativa de Predicciones", "content": comp_df.to_html(classes='table table-sm', border=0, index=False)}
+                ]
             }
         except Exception as e:
             return {"success": False, "error": str(e)}

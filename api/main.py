@@ -1,28 +1,18 @@
 import os
 import httpx
-from fastapi import FastAPI, UploadFile, File, HTTPException, Response, Request
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Optional
 
-app = FastAPI(title="Proxy API (API2)", description="Lightweight Gateway to ML Backend")
+app = FastAPI(title="Proxy API (API2)", description="Pasarela ligera hacia el backend de ML")
 
-# CONFIGURACIÓN: Pega aquí tu URL de Cloudflare Tunnel
-# Ejemplo: "https://mi-tunel.trycloudflare.com"
-TUNNEL_URL = "https://fundamental-ship-kerry-scales.trycloudflare.com" 
-
-# El sistema usará la URL del túnel si la pones arriba, 
-# de lo contrario buscará una variable de entorno o usará localhost.
+# Configuración del Túnel Cloudflare
+TUNNEL_URL = " https://advisors-derived-cowboy-jade.trycloudflare.com" 
 API1_BASE_URL = TUNNEL_URL or os.getenv("API1_BASE_URL", "http://127.0.0.1:8000")
 
-# CORS Setup
-origins = [
-    "*", # Allow all for now to ensure frontend works from any device/origin
-]
-
+# Configuración de CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -37,36 +27,29 @@ async def health_check():
 
 @app.get("/tasks/")
 async def get_tasks():
+    """Obtiene la lista de tareas desde la API1"""
     async with await get_client() as client:
         try:
             response = await client.get("/tasks/")
             if response.is_success:
                 return response.json()
-            raise HTTPException(status_code=response.status_code, detail="Error in API1")
+            raise HTTPException(status_code=response.status_code, detail="Error en API1")
         except httpx.RequestError as exc:
-            raise HTTPException(status_code=502, detail=f"Error communicating with API1: {exc}")
+            raise HTTPException(status_code=502, detail=f"Error de comunicación con API1: {exc}")
 
 @app.post("/tasks/{task_id}/")
 async def proxy_upload(task_id: str, file: UploadFile = File(...)):
-    """
-    Proxies the file upload to API1 using streaming to avoid loading the entire file into RAM.
-    """
-    
+    """Reenvía la subida de archivos a la API1 usando streaming para ahorrar RAM"""
     files = {'file': (file.filename, file.file, file.content_type)}
     
     async with await get_client() as client:
         try:
-            # Note: We need a long timeout for large file uploads/processing if it's synchronous
-            # But the requirement says API1 does ML processing, so we validat connection.
-            # Usually API1 should accept the file and return quickly if processing is async,
-            # but if it blocks, we need timeout.
+            # Timeout largo para procesamientos sincronos pesados
             response = await client.post(f"/tasks/{task_id}/", files=files, timeout=300.0)
             
-            # Si la respuesta es exitosa (200, 201, 202, etc), devolvemos el JSON directamente
             if response.is_success:
                 return response.json()
             
-            # Si hay error (400, 500, etc), lanzamos la excepción con el detalle
             try:
                 error_detail = response.json()
             except:
@@ -74,22 +57,20 @@ async def proxy_upload(task_id: str, file: UploadFile = File(...)):
             raise HTTPException(status_code=response.status_code, detail=error_detail)
             
         except httpx.RequestError as exc:
-             raise HTTPException(status_code=502, detail=f"Error uploading to API1: {exc}")
+             raise HTTPException(status_code=502, detail=f"Error subiendo a API1: {exc}")
 
 @app.get("/tasks/{task_id}/result/{file_id}/")
 async def get_result(task_id: str, file_id: str):
+    """Consulta el estado o resultado de una tarea en la API1"""
     async with await get_client() as client:
         try:
             response = await client.get(f"/tasks/{task_id}/result/{file_id}/")
-            
             if response.is_success:
                 return response.json()
-
-            raise HTTPException(status_code=response.status_code, detail="Error fetching result from API1")
+            raise HTTPException(status_code=response.status_code, detail="Error obteniendo resultado de API1")
         except httpx.RequestError as exc:
-            raise HTTPException(status_code=502, detail=f"Error communicating with API1: {exc}")
+            raise HTTPException(status_code=502, detail=f"Error de comunicación con API1: {exc}")
 
 if __name__ == "__main__":
     import uvicorn
-    # Local development run
     uvicorn.run(app, host="0.0.0.0", port=8001)

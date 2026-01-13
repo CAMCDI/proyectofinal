@@ -1,4 +1,3 @@
-// js/upload.js - Lógica de carga de archivos
 document.addEventListener('DOMContentLoaded', () => {
     const task = AppState.getTask();
     if (!task) {
@@ -6,7 +5,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    // UI Elements
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
     const uploadBtn = document.getElementById('upload-btn');
@@ -16,27 +14,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const uploadLoading = document.getElementById('upload-loading');
     const uploadStatus = document.getElementById('upload-status');
 
-    // Set task info
+    // Inicializar info de la tarea
     document.getElementById('task-title').innerText = task.name;
     document.getElementById('task-description').innerText = task.description;
     document.getElementById('task-ext').innerText = `Formato: ${task.ext}`;
 
-    // File selection
     let selectedFile = null;
 
     dropZone.onclick = () => fileInput.click();
-
     fileInput.onchange = (e) => {
         if (e.target.files.length > 0) handleFile(e.target.files[0]);
     };
 
-    dropZone.ondragover = (e) => {
-        e.preventDefault();
-        dropZone.classList.add('dragover');
-    };
-
+    dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
     dropZone.ondragleave = () => dropZone.classList.remove('dragover');
-
     dropZone.ondrop = (e) => {
         e.preventDefault();
         dropZone.classList.remove('dragover');
@@ -50,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadBtn.disabled = false;
     }
 
-    // Upload
+    // Proceso de subida
     uploadBtn.onclick = async () => {
         if (!selectedFile) return;
 
@@ -60,7 +51,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const data = await API.uploadFile(task.id, selectedFile);
-
             if (data.status === 'accepted' && data.file_id) {
                 AppState.setFileId(data.file_id);
                 window.location.href = 'result.html';
