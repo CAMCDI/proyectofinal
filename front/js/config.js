@@ -10,7 +10,7 @@ const CONFIG = {
 
         // Entorno de producción (Render):
         // Aquí debes poner la URL pública de tu API2 desplegada en Render.
-        return 'https://api-gateway-render-url.onrender.com';
+        return 'https://api2-41ag.onrender.com';
     })()
 };
 
