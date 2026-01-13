@@ -31,44 +31,57 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('error-message').innerText = error.message;
     }
 
-    function renderResult(data) {
-        document.getElementById('result-summary').innerText = data.result || 'Análisis completado exitosamente';
+    function renderResults(result) {
+        resultSection.style.display = 'block';
+        loadingSection.style.display = 'none';
+
+        document.getElementById('result-summary').innerText = result.result;
+
         let html = '';
 
-        // Métricas
-        if (data.metrics && data.metrics.length > 0) {
-            html += '<div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:2rem;">';
-            data.metrics.forEach(m => {
-                html += `<div class="badge">${m.label}: ${m.value}</div>`;
+        // 1. Métricas como tarjetas de dashboard
+        if (result.metrics && result.metrics.length > 0) {
+            html += '<div class="metrics-grid">';
+            result.metrics.forEach(m => {
+                html += `
+                    <div class="metric-card">
+                        <span class="label">${m.label}</span>
+                        <span class="value">${m.value}</span>
+                    </div>
+                `;
             });
             html += '</div>';
         }
 
-        // Tablas
-        if (data.tables) {
-            data.tables.forEach(t => {
+        // 2. Tablas de datos
+        if (result.tables && result.tables.length > 0) {
+            result.tables.forEach(table => {
                 html += `
                     <div class="table-viewer">
-                        <h4>${t.title}</h4>
-                        <div class="table-container">${t.content}</div>
+                        <h4 class="section-title">${table.title}</h4>
+                        <div class="table-wrapper">
+                            ${table.content}
+                        </div>
                     </div>
                 `;
             });
         }
 
-        // Gráficos
-        if (data.graphics) {
-            html += '<div class="graphics-grid">';
-            data.graphics.forEach(g => {
+        // 3. Gráficas
+        if (result.graphics && result.graphics.length > 0) {
+            html += '<h4 class="section-title">Visualización de Inteligencia</h4>';
+            html += '<div class="graphics-container">';
+            result.graphics.forEach(g => {
                 html += `
-                    <div class="graphic-item">
+                    <div class="graphic-box">
                         <h4>${g.title}</h4>
-                        <img src="data:image/png;base64,${g.image}" loading="lazy" alt="${g.title}">
+                        <img src="data:image/png;base64,${g.image}" alt="${g.title}">
                     </div>
                 `;
             });
             html += '</div>';
         }
+
         resultContent.innerHTML = html;
     }
 });

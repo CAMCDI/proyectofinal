@@ -45,12 +45,21 @@ document.addEventListener('DOMContentLoaded', () => {
     uploadBtn.onclick = async () => {
         if (!selectedFile) return;
 
+        const progressBar = document.getElementById('upload-progress');
         uploadPanel.style.display = 'none';
         uploadLoading.style.display = 'block';
-        uploadStatus.innerText = 'Subiendo archivo...';
+        uploadStatus.innerText = 'Initializing Data Injection... (0%)';
+        progressBar.style.width = '0%';
 
         try {
-            const data = await API.uploadFile(task.id, selectedFile);
+            const data = await API.uploadFile(task.id, selectedFile, (percent) => {
+                progressBar.style.width = `${percent}%`;
+                uploadStatus.innerText = `Injecting Data Packets... (${percent}%)`;
+                if (percent === 100) {
+                    uploadStatus.innerText = 'Analyzing Patterns in Mainframe...';
+                }
+            });
+
             if (data.status === 'accepted' && data.file_id) {
                 AppState.setFileId(data.file_id);
                 window.location.href = 'result.html';

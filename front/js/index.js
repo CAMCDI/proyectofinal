@@ -11,15 +11,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         data.tasks.forEach(task => {
             const card = document.createElement('div');
             card.className = 'card';
-            card.innerHTML = `
-                <h2><i class="bi ${task.icon || 'bi-gear'}"></i> ${task.name}</h2>
-                <p>${task.description}</p>
-                <div class="badge">${task.ext}</div>
-            `;
             card.onclick = () => {
                 AppState.setTask(task);
                 window.location.href = 'upload.html';
             };
+
+            card.innerHTML = `
+                <div class="card-header">
+                    <div class="card-icon">
+                        <i class="bi ${task.icon}"></i>
+                    </div>
+                    <h2>${task.name}</h2>
+                </div>
+                <p>${task.description}</p>
+                <div class="card-footer">
+                    <span class="badge">${task.ext}</span>
+                    <i class="bi bi-chevron-right" style="color: var(--neon-cyan)"></i>
+                </div>
+            `;
             taskGrid.appendChild(card);
         });
     } catch (error) {

@@ -22,13 +22,42 @@ const API = {
         return this.fetchWithRetry(`${CONFIG.BACKEND_URL}/tasks/`);
     },
 
-    async uploadFile(taskId, file) {
-        const formData = new FormData();
-        formData.append('file', file);
-        return this.fetchWithRetry(`${CONFIG.BACKEND_URL}/tasks/${taskId}/`, {
-            method: 'POST',
-            body: formData
-        }, 1);
+    async uploadFile(taskId, file, onUploadProgress) {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            const formData = new FormData();
+            formData.append('file', file);
+
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable && onUploadProgress) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    onUploadProgress(percent);
+                }
+            });
+
+            xhr.addEventListener('load', () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        resolve(JSON.parse(xhr.responseText));
+                    } catch (e) {
+                        reject(new Error("Respuesta del servidor inválida"));
+                    }
+                } else {
+                    let errorMsg = "Error en la subida";
+                    try {
+                        const err = JSON.parse(xhr.responseText);
+                        errorMsg = err.detail || err.error || errorMsg;
+                    } catch (e) { }
+                    reject(new Error(errorMsg));
+                }
+            });
+
+            xhr.addEventListener('error', () => reject(new Error("Error de conexión")));
+            xhr.addEventListener('abort', () => reject(new Error("Carga cancelada")));
+
+            xhr.open('POST', `${CONFIG.BACKEND_URL}/tasks/${taskId}/`);
+            xhr.send(formData);
+        });
     },
 
     async getResult(taskId, fileId) {

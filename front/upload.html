@@ -4,12 +4,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ML Processor - Cargar Archivo</title>
-    <link rel="stylesheet" href="css/styles_v3.css">
+    <title>ML Hub - Data Injection</title>
+    <link rel="stylesheet" href="css/styles_techno.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
 
-<body>
+<body class="techno-dark">
     <div class="container">
         <header>
             <h1 id="task-title">Cargar Archivo</h1>
@@ -40,8 +40,16 @@
             </div>
 
             <div class="loading" id="upload-loading" style="display: none;">
-                <div class="spinner"></div>
-                <p id="upload-status">Subiendo archivo...</p>
+                <div class="scanner-line"></div>
+                <div class="spinner" style="border-top-color: var(--neon-cyan); margin-top: 2rem;"></div>
+                <p id="upload-status" style="font-family: 'JetBrains Mono', monospace; color: var(--neon-cyan);">
+                    Initializing Data Injection...</p>
+                <div class="progress-container"
+                    style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 1rem; overflow: hidden;">
+                    <div id="upload-progress"
+                        style="width: 0%; height: 100%; background: var(--neon-cyan); box-shadow: var(--glow-cyan); transition: width 0.3s;">
+                    </div>
+                </div>
             </div>
         </div>
     </div>

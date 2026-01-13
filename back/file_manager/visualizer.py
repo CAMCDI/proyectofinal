@@ -7,6 +7,7 @@ import base64
 import pandas as pd
 from pandas.plotting import scatter_matrix
 import numpy as np
+from sklearn.metrics import roc_curve, auc
 
 def get_base64_plot():
     """Convert the current matplotlib plot to a base64 string."""
@@ -76,4 +77,22 @@ class MLVisualizer:
         df[column].value_counts().plot(kind='bar')
         plt.title(title or f"Distribución de {column}")
         plt.grid(axis='y', alpha=0.3)
+        return get_base64_plot()
+
+    @staticmethod
+    def plot_roc_curve(y_real, y_proba):
+        """Generate a ROC curve plot."""
+        fpr, tpr, thresholds = roc_curve(y_real, y_proba)
+        roc_auc = auc(fpr, tpr)
+        
+        plt.figure(figsize=(8, 6))
+        plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
+        plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+        plt.xlim([0.0, 1.0])
+        plt.ylim([0.0, 1.05])
+        plt.xlabel('Tasa de Falsos Positivos')
+        plt.ylabel('Tasa de Verdaderos Positivos')
+        plt.title('Receiver Operating Characteristic (ROC)')
+        plt.legend(loc="lower right")
+        plt.grid(alpha=0.3)
         return get_base64_plot()
