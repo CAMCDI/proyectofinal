@@ -569,7 +569,7 @@ class MLManager:
                 "details": f"Procesados {len(df)} registros: división, imputación, codificación y escalado.",
                 "metrics": [
                     {"label": "Train Set", "value": len(train_set)},
-                    {"label": "Valores Nulos Detectados", "value": X_train.isnull().any(axis=1).sum()}
+                    {"label": "Valores Nulos Detectados", "value": int(X_train.isnull().any(axis=1).sum())}
                 ],
                 "tables": [
                     {"title": "1. Filas con Valores Nulos Encontrados", "content": null_html},

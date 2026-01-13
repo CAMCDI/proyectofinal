@@ -9,7 +9,7 @@ app = FastAPI(title="Proxy API (API2)", description="Lightweight Gateway to ML B
 
 # CONFIGURACIÓN: Pega aquí tu URL de Cloudflare Tunnel
 # Ejemplo: "https://mi-tunel.trycloudflare.com"
-TUNNEL_URL = "https://helped-humidity-tiger-craps.trycloudflare.com" 
+TUNNEL_URL = "https://fundamental-ship-kerry-scales.trycloudflare.com" 
 
 # El sistema usará la URL del túnel si la pones arriba, 
 # de lo contrario buscará una variable de entorno o usará localhost.
