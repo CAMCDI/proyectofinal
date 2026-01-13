@@ -701,7 +701,14 @@ class MLManager:
             train_acc = clf.score(X_train_prep, y_train)
             val_acc = clf.score(X_val_prep, y_val)
             
-            # 6. Prediction Comparison Table (Sample of 10)
+            # 6. Tables for Frontend
+            # Table 1: Initial Dataset View
+            head_html = df.head(10).to_html(classes='table table-sm table-hover small', border=0)
+            
+            # Table 2: X_train (Before Prep)
+            xtrain_html = X_train.head(10).to_html(classes='table table-sm table-hover small', border=0)
+            
+            # Table 3: Prediction Comparison (Sample of 10)
             y_val_pred = clf.predict(X_val_prep)
             comparison_df = pd.DataFrame({
                 'Real': y_val.values[:10] if y_val is not None else [],
@@ -713,15 +720,18 @@ class MLManager:
                 "success": True,
                 "task": "10: Evaluación de Resultados",
                 "result": f"Modelo Logístico entrenado (Accuracy Val: {val_acc:.4f})",
-                "details": "Entrenamiento de regresión logística con max_iter=5000 sobre conjunto de datos estratificado.",
+                "details": "Entrenamiento de regresión logística sobre conjunto de datos estratificado (60/20/20).",
                 "metrics": [
                     {"label": "Training Accuracy", "value": f"{train_acc:.4f}"},
                     {"label": "Validation Accuracy", "value": f"{val_acc:.4f}"},
-                    {"label": "Registros Entrenamiento", "value": len(X_train_prep)},
-                    {"label": "Registros Validación", "value": len(X_val_prep)}
+                    {"label": "Training Set", "value": len(X_train)},
+                    {"label": "Validation Set", "value": len(X_val)},
+                    {"label": "Test Set", "value": len(test_set)}
                 ],
                 "tables": [
-                    {"title": "Comparativa de Predicciones (Acrúa vs Predicho - Muestra 10)", "content": comparison_html}
+                    {"title": "1. Vista inicial del Dataset (KDDTrain+)", "content": head_html},
+                    {"title": "2. Atributos de Entrenamiento (X_train)", "content": xtrain_html},
+                    {"title": "3. Comparativa de Predicciones (Real vs Predicho)", "content": comparison_html}
                 ],
                 "graphics": []
             }
