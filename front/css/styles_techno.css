@@ -363,6 +363,62 @@ tbody tr:hover {
     box-shadow: var(--glow-cyan);
 }
 
+/* Upload Area - Techno Style */
+.upload-area {
+    border: 2px dashed var(--border-dim);
+    border-radius: var(--radius-lg);
+    padding: 4rem 2rem;
+    text-align: center;
+    margin: 2rem 0;
+    background: rgba(255, 255, 255, 0.02);
+    transition: var(--transition);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.upload-area:hover,
+.upload-area.dragover {
+    border-color: var(--neon-cyan);
+    background: rgba(0, 247, 255, 0.05);
+    box-shadow: inset 0 0 20px rgba(0, 247, 255, 0.1);
+}
+
+.upload-area i {
+    font-size: 3.5rem;
+    color: var(--neon-cyan);
+    filter: drop-shadow(var(--glow-cyan));
+}
+
+.upload-area p {
+    color: var(--text-dim);
+    font-size: 1rem;
+    margin: 0;
+}
+
+#file-info {
+    background: var(--bg-surface-alt);
+    padding: 1rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-bright);
+    margin-bottom: 2rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+}
+
+#selected-filename {
+    color: var(--neon-magenta);
+    font-weight: 700;
+}
+
+/* Loading States */
+.loading {
+    text-align: center;
+    padding: 3rem;
+}
+
 /* Responsive Customization */
 @media (max-width: 768px) {
     .container {
