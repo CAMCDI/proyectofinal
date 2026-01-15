@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('error-message').innerText = error.message;
     }
 
-    function renderResults(result) {
+    function renderResult(result) {
         resultSection.style.display = 'block';
         loadingSection.style.display = 'none';
 
