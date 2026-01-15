@@ -7,7 +7,7 @@ app = FastAPI(title="Proxy API (API2)", description="Pasarela ligera hacia el ba
 
 # Configuración del Túnel Cloudflare (Opcional para prod)
 API1_BASE_URL = os.getenv("API1_BASE_URL", "http://127.0.0.1:8000")
-TUNNEL_URL = "https://metals-consistently-sheet-xml.trycloudflare.com"
+TUNNEL_URL = "https://expressions-owners-mines-bite.trycloudflare.com"
 
 # Si estamos en Render o se fuerza por ENV, usamos el túnel
 if os.getenv("RENDER") == "true" or os.getenv("USE_TUNNEL") == "true":
